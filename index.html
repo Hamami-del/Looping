@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoopMaster Pro - HAMAMI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+    <style>
+        body { background-color: #0f172a; color: white; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); width: 100%; max-width: 450px; padding: 2.5rem; border-radius: 2rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .hidden { display: none !important; }
+        .btn-primary { background: linear-gradient(90deg, #6366f1, #a855f7); width: 100%; padding: 1rem; border-radius: 0.75rem; font-weight: bold; transition: all 0.2s; }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-2px); }
+        input[type="password"], input[type="file"] { background: #1e293b; border: 1px solid #334155; border-radius: 0.75rem; padding: 0.75rem; width: 100%; color: white; margin-bottom: 1rem; font-size: 0.875rem; }
+    </style>
+</head>
+<body>
+
+    <div id="login-section" class="glass text-center animate-in fade-in duration-500">
+        <div class="mb-6 flex justify-center">
+            <div class="bg-indigo-500/10 p-4 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+        </div>
+        <h1 class="text-2xl font-bold mb-2">Akses Terkunci</h1>
+        <p class="text-slate-400 mb-8 text-sm px-4">Masukkan kode akses khusus untuk memulai aplikasi HAMAMI</p>
+        <input type="password" id="pass-input" placeholder="Masukkan Kode Akses">
+        <button onclick="handleLogin()" class="btn-primary uppercase tracking-widest">Buka Aplikasi</button>
+        <p id="err-msg" class="text-red-400 text-xs mt-4 hidden italic">Kode salah, silakan coba lagi.</p>
+    </div>
+
+    <div id="app-section" class="glass hidden animate-in zoom-in duration-300">
+        <div class="border-b border-slate-700 mb-6 pb-4 flex justify-between items-end">
+            <div>
+                <h2 class="text-xl font-black text-indigo-400 italic">LOOPMASTER PRO</h2>
+                <p class="text-[10px] tracking-[0.2em] text-slate-400 uppercase font-bold">By HAMAMI</p>
+            </div>
+            <span class="text-[9px] bg-indigo-500/20 px-2 py-1 rounded text-indigo-300 border border-indigo-500/30">MUTE-AUTO ON</span>
+        </div>
+
+        <div class="space-y-4">
+            <div>
+                <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1 ml-1">1. Musik Utama (MP3)</label>
+                <input type="file" id="aud-in" accept="audio/mp3">
+            </div>
+            <div>
+                <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1 ml-1">2. Video Loop (MP4)</label>
+                <input type="file" id="vid-in" accept="video/mp4">
+            </div>
+            
+            <button id="folder-btn" class="text-[11px] bg-slate-800 p-3 rounded-lg w-full font-bold border border-slate-700 hover:bg-slate-700 mb-2 flex items-center justify-center gap-2">
+                <span>📁</span> PILIH FOLDER PENYIMPANAN
+            </button>
+
+            <div id="prog-box" class="hidden py-4 border-t border-slate-700 mt-4">
+                <div class="flex justify-between text-[10px] mb-2 font-bold tracking-tighter">
+                    <span id="stat-txt" class="text-indigo-300 italic uppercase tracking-widest">Sedang Render...</span>
+                    <span id="perc-txt">0%</span>
+                </div>
+                <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                    <div id="bar" class="bg-gradient-to-r from-indigo-500 to-purple-500 h-full transition-all" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <button id="run-btn" class="btn-primary mt-2">MULAI RENDER SEKARANG</button>
+            
+            <div id="done-msg" class="hidden text-center text-green-400 text-[10px] font-bold mt-4 tracking-widest uppercase">
+                ✨ Video Berhasil Disimpan ✨
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const KODE = "HAMAMI0909";
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const ffmpeg = createFFmpeg({ log: true });
+        let dirHandle = null;
+
+        function handleLogin() {
+            const input = document.getElementById('pass-input').value;
+            if(input === KODE) {
+                document.getElementById('login-section').classList.add('hidden');
+                document.getElementById('app-section').classList.remove('hidden');
+            } else {
+                document.getElementById('err-msg').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('folder-btn').addEventListener('click', async () => {
+            try {
+                dirHandle = await window.showDirectoryPicker();
+                document.getElementById('folder-status-ui');
+                document.getElementById('folder-btn').innerHTML = "✅ FOLDER: " + dirHandle.name.toUpperCase();
+                document.getElementById('folder-btn').classList.replace('bg-slate-800', 'bg-green-900/20');
+                document.getElementById('folder-btn').classList.add('text-green-400', 'border-green-500/30');
+            } catch (e) {}
+        });
+
+        const runBtn = document.getElementById('run-btn');
+        runBtn.addEventListener('click', async () => {
+            const aFile = document.getElementById('aud-in').files[0];
+            const vFile = document.getElementById('vid-in').files[0];
+
+            if(!aFile || !vFile) return alert("Pilih file Audio & Video dulu, HAMAMI!");
+
+            try {
+                runBtn.disabled = true;
+                runBtn.innerText = "SEDANG BEKERJA...";
+                document.getElementById('prog-box').classList.remove('hidden');
+
+                if (!ffmpeg.isLoaded()) await ffmpeg.load();
+
+                ffmpeg.FS('writeFile', 'a.mp3', await fetchFile(aFile));
+                ffmpeg.FS('writeFile', 'v.mp4', await fetchFile(vFile));
+
+                ffmpeg.setProgress(({ ratio }) => {
+                    const p = Math.round(ratio * 100);
+                    document.getElementById('bar').style.width = p + '%';
+                    document.getElementById('perc-txt').innerText = p + '%';
+                });
+
+                // PERINTAH FFmpeg PERBAIKAN:
+                // -an pada input 0 (video) mematikan suara video asli
+                // -shortest memotong sesuai durasi musik
+                await ffmpeg.run(
+                    '-stream_loop', '-1', 
+                    '-i', 'v.mp4', 
+                    '-i', 'a.mp3', 
+                    '-shortest', 
+                    '-map', '0:v:0', // Ambil video saja dari file 1
+                    '-map', '1:a:0', // Ambil audio saja dari file 2
+                    '-c:v', 'copy',  // Copy video tanpa render ulang (Cepat!)
+                    '-c:a', 'aac',   // Convert mp3 ke standar mp4
+                    'out.mp4'
+                );
+
+                const data = ffmpeg.FS('readFile', 'out.mp4');
+
+                if(dirHandle) {
+                    const h = await dirHandle.getFileHandle(`HAMAMI_VIDEO_${Date.now()}.mp4`, {create:true});
+                    const w = await h.createWritable();
+                    await w.write(data.buffer);
+                    await w.close();
+                } else {
+                    const url = URL.createObjectURL(new Blob([data.buffer], {type:'video/mp4'}));
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `HAMAMI_VIDEO_${Date.now()}.mp4`;
+                    link.click();
+                }
+
+                document.getElementById('done-msg').classList.remove('hidden');
+                runBtn.disabled = false;
+                runBtn.innerText = "MULAI RENDER LAGI";
+            } catch (err) {
+                console.error(err);
+                alert("Gunakan Chrome Desktop (bukan mode preview) agar sistem berjalan!");
+                runBtn.disabled = false;
+                runBtn.innerText = "MULAI RENDER SEKARANG";
+            }
+        });
+    </script>
+</body>
+</html>
